@@ -3,37 +3,10 @@ name: Build Music Player
 on:
   push:
     branches: [ main ]
-  pull_request:
-    branches: [ main ]
 
 jobs:
-  build-web:
-    runs-on: ubuntu-latest
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-
-    - name: Setup Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: '20'
-
-    - name: Install dependencies
-      run: npm install
-
-    - name: Build web
-      run: npm run build
-
-    - name: Upload web build
-      uses: actions/upload-artifact@v4
-      with:
-        name: music-player-web
-        path: dist/
-        retention-days: 30
-
   build-linux:
     runs-on: ubuntu-latest
-    needs: build-web
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
@@ -42,6 +15,11 @@ jobs:
       uses: actions/setup-node@v4
       with:
         node-version: '20'
+
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y libarchive-tools
 
     - name: Install dependencies
       run: npm install
@@ -50,11 +28,29 @@ jobs:
       run: npm run build
 
     - name: Build Electron Linux
-      run: npx electron-builder --linux --config
+      run: npx electron-builder --linux --config --publish never
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-    - name: Upload Linux build
+    - name: Upload Linux AppImage
       uses: actions/upload-artifact@v4
       with:
-        name: music-player-linux
+        name: music-player-appimage
         path: release/*.AppImage
         retention-days: 30
+
+    - name: Create Release
+      if: success()
+      uses: softprops/action-gh-release@v2
+      with:
+        tag_name: v1.0.0
+        name: Music Player v1.0.0
+        files: release/*.AppImage
+        body: |
+          Music Player - Desktop Application
+          
+          Download the AppImage file and run:
+          chmod +x Music-Player-*.AppImage
+          ./Music-Player-*.AppImage
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
